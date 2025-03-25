@@ -37,6 +37,8 @@ if hasattr(torch, "inference_mode"):
 else:
     inference_mode = torch.no_grad
 
+# LOGGING THE GRAPHS
+from habitat_llm.agent.env.log_graph import LogSystem
 
 def camera_spec_to_intrinsics(camera_spec):
     def f(length, fov):
@@ -139,6 +141,8 @@ class EnvironmentInterface:
         self._trajectory_idx: int = None
         self._setup_current_episode_logging: bool = False
 
+        self.logger = LogSystem()
+
     def initialize_perception_and_world_graph(self):
         """
         This method initializes perception and world graph
@@ -163,11 +167,13 @@ class EnvironmentInterface:
 
         # create world-graphs for both agents
         if self.partial_obs:
+            print("partial_obs is on !")
             self.world_graph = {
                 self.robot_agent_uid: DynamicWorldGraph(),
                 self.human_agent_uid: DynamicWorldGraph(),
             }
         else:
+            print("full obs is on !")
             self.world_graph = {
                 self.robot_agent_uid: WorldGraph(),
                 self.human_agent_uid: WorldGraph(),
@@ -190,6 +196,7 @@ class EnvironmentInterface:
 
         # maintain a copy of fully-observable world-graph
         self.full_world_graph = WorldGraph()
+        # print("WorldGraph initialized!")
         most_recent_graph = self.perception.initialize(False)
         self.full_world_graph.update(most_recent_graph, False, "gt", add_only=True)
 
@@ -481,25 +488,36 @@ class EnvironmentInterface:
         # Case 2: PARTIAL OBSERVABILITY
         # Update both graphs using both human and robot observations
         else:
-            # Get robots subgraph using both human and robot observations
+            # # Get robots subgraph using both human and robot observations
+            # most_recent_robot_subgraph = self.perception.get_recent_subgraph(
+            #     [str(self.robot_agent_uid), str(self.human_agent_uid)], obs
+            # )
+
+            # # Get human subgraph using only human observations
+            # observation_sources = []
+            # if self.conf.agent_asymmetry:
+            #     # under asymmetry condition human's world-graph only uses human's own observations
+            #     observation_sources = [str(self.human_agent_uid)]
+            # else:
+            #     # under symmetry condition the human's world-graph uses both human's and Spot's observations
+            #     observation_sources = [
+            #         str(self.robot_agent_uid),
+            #         str(self.human_agent_uid),
+            #     ]
+            # most_recent_human_subgraph = self.perception.get_recent_subgraph(
+            #     observation_sources,
+            #     obs,
+            # )
+
+            # LEONA: Change this so that the robot can only have its own observation
             most_recent_robot_subgraph = self.perception.get_recent_subgraph(
-                [str(self.robot_agent_uid), str(self.human_agent_uid)], obs
+                [str(self.robot_agent_uid)], 
+                obs
             )
 
-            # Get human subgraph using only human observations
-            observation_sources = []
-            if self.conf.agent_asymmetry:
-                # under asymmetry condition human's world-graph only uses human's own observations
-                observation_sources = [str(self.human_agent_uid)]
-            else:
-                # under symmetry condition the human's world-graph uses both human's and Spot's observations
-                observation_sources = [
-                    str(self.robot_agent_uid),
-                    str(self.human_agent_uid),
-                ]
             most_recent_human_subgraph = self.perception.get_recent_subgraph(
-                observation_sources,
-                obs,
+                [str(self.human_agent_uid)],
+                obs
             )
 
             # Update robot graph
@@ -675,6 +693,24 @@ class EnvironmentInterface:
 
         # Update world graphs
         self.update_world_graphs(obs)
+
+        # Log the graphs
+        robot_graph = self.world_graph[0]
+        human_graph = self.world_graph[1]
+        self.logger.log_world_graphs(self.full_world_graph, robot_graph, human_graph)
+
+        # print("Update world graph! ")
+        # print(self.full_world_graph.et_world_descr())
+        # Access the robot's world graph (agent 0)
+        # robot_graph = self.world_graph[0]
+
+        # LEONA'S NOTE: Print a textual description of the robot's graph
+        # print("Robot's World Graph Description:")
+        # print(robot_graph.get_world_descr())
+
+        # Alternatively, print a DOT format for visualization with Graphviz or similar tools
+        # print("\nRobot's World Graph (DOT format):")
+        # print(robot_graph.to_dot())
 
         return obs, reward, done, info
 

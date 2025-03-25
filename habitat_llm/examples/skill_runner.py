@@ -239,6 +239,7 @@ def run_skills(config: omegaconf.DictConfig) -> None:
                 cprint("... invalid Agent Index, aborting.", "red")
                 continue
             target_entity_name = input("Target Entity = ")
+            target_entity_name = str(target_entity_name)
         elif user_input.split(" ")[0] in skills:
             # attempt to parse full skill definition from string
             skill_components = user_input.split(" ")
@@ -254,8 +255,11 @@ def run_skills(config: omegaconf.DictConfig) -> None:
         # configure and run the skill
         if selected_skill is not None:
             high_level_skill_actions = {
-                int(agent_ix): (selected_skill, target_entity_name, None)
+                int(agent_ix): (selected_skill, str(target_entity_name), None)
             }
+            print(f"DEBUG: high_level_skill_actions = {high_level_skill_actions}")
+            # print(f"DEBUG: agent_ix = {agent_ix}, type = {type(int(agent_ix))}")
+            # print(f"DEBUG: target_entity_name = {target_entity_name}, type = {type(target_entity_name)}")
 
             ############################
             # run the skill

@@ -21,7 +21,7 @@ world_model:
 
 device      : cpu
 instruction : ''
-mode: "dataset" # cli / dataset
+mode: "cli" # cli / dataset
 env: habitat
 num_runs_per_episode: 1
 num_proc: 1

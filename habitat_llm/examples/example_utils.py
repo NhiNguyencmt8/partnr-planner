@@ -63,13 +63,19 @@ class DebugVideoUtil:
 
         # Extract dimensions of the first image
         height, width = images[0].shape[1:3]
+        # print("Failed here")
 
         # Create an empty canvas to hold the concatenated images
-        concat_image = np.zeros((height, width * len(images), 3), dtype=np.uint8)
+        concat_image = np.zeros((height, width * len(images), 3), dtype="uint8")
+        # print("PAss creation")
+        images = [image.byte() for image in images]
 
         # Iterate through the images and concatenate them horizontally
         for i, image in enumerate(images):
-            concat_image[:, i * width : (i + 1) * width] = image.cpu()
+            np_image = image.cpu().numpy()
+            concat_image[:, i * width : (i + 1) * width] = np_image
+        # print("Through for loop")
+
 
         return concat_image
 
@@ -83,9 +89,11 @@ class DebugVideoUtil:
         :param observations: A dict mapping observation names to values.
         :param hl_actions: A dict mapping agent action indices to actions.
         """
+        # print("calling the function")
         frames_concat = self.__get_combined_frames(observations)
+        # print("okayyy")
         frames_concat = np.ascontiguousarray(frames_concat)
-
+        # print("Before the loop")
         for idx, action in hl_actions.items():
             # text = f"Agent_{id}:{action[0]}[{action[1]}]"
             agent_name = "Human" if str(idx) == "1" else "Robot"
@@ -99,7 +107,8 @@ class DebugVideoUtil:
                 (255, 255, 255),
                 2,
             )
-
+            # print("Not concat frame")
+        # print("NOt the loop")
         self.frames.append(frames_concat)
         return
 
@@ -173,6 +182,11 @@ def execute_skill(
     :param play_video: Whether or not to immediately play the generated video.
     :return: A tuple with two dict(the first contains responses per-agent skill, the second contains the number of skill steps taken) and a list of frames.
     """
+
+    print(f"DEBUG: high_level_skill_actions = {high_level_skill_actions}")
+    print(f"DEBUG: Types -> {[type(k) for k in high_level_skill_actions.keys()]}")
+    print(f"DEBUG: Types -> {[type(v) for v in high_level_skill_actions.values()]}")
+    
     dvu = DebugVideoUtil(
         llm_env.env_interface, llm_env.env_interface.conf.paths.results_dir
     )
@@ -194,10 +208,12 @@ def execute_skill(
             skill_steps < max_skill_steps
         ), f"Maximum number of steps reached: {skill_name} skill fails."
 
+
         # Get low level actions and responses
         low_level_actions, responses = llm_env.process_high_level_actions(
             high_level_skill_actions, observations
         )
+
 
         assert (
             len(low_level_actions) > 0
@@ -208,16 +224,22 @@ def execute_skill(
             skill_done = True
 
         # Get the observations
+
+
         obs, reward, done, info = llm_env.env_interface.step(low_level_actions)
         observations = llm_env.env_interface.parse_observations(obs)
 
+
         if make_video:
+            # print("Got through this")
             dvu._store_for_video(observations, high_level_skill_actions)
+            # print("VIdeo through this")
 
         # Increase steps
         skill_steps += 1
 
     if make_video and skill_steps > 1:
+        print("Yeah got through this")
         dvu._make_video(postfix=vid_postfix, play=play_video)
-
+    
     return responses, {"skill_steps": skill_steps}, dvu.frames

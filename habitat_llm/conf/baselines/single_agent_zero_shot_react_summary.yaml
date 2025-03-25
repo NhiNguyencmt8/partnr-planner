@@ -13,6 +13,7 @@ world_model:
   partial_obs: True
 
 evaluation:
+  save_video: True
   agents:
     agent_0:
       planner:

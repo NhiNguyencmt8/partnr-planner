@@ -209,23 +209,38 @@ class PropositionResolver:
         :constraints_agent_assignment: for every proposition index, which agents can do them
         :return: dictionary from agent to skills
         """
-        agent_actions = {ind: [] for ind in range(num_agents)}
+        # agent_actions = {ind: [] for ind in range(num_agents)}
+        # for prop_grp_ind, prop_group in enumerate(prop_groups):
+        #     for ind, action in enumerate(prop_group):
+        #         prop_ind = prop_indices[prop_grp_ind][ind]
+        #         assigned_agent = self.random.choice(
+        #             constraints_agent_assignment[prop_ind]
+        #         )
+
+        #         if type(action) == list:
+        #             agent_actions[assigned_agent] += action
+        #         else:
+        #             agent_actions[assigned_agent].append(action)
+
+            # if num_agents > 1:
+            #     for ind in range(num_agents):
+            #         agent_actions[ind].append(f"Wait {prop_grp_ind}")
+            # agent_actions[0].append(f"Wait {prop_grp_ind}")
+        
+        
+        # Initialize the dictionary: agent[0] gets an empty list (will only have Wait) and agent[1] gets the actual actions.
+        # LEONA: Since agent[0] does nothing, always append "Wait" for synchronization
+        agent_actions = {0: [], 1: []}
+
         for prop_grp_ind, prop_group in enumerate(prop_groups):
             for ind, action in enumerate(prop_group):
-                prop_ind = prop_indices[prop_grp_ind][ind]
-                assigned_agent = self.random.choice(
-                    constraints_agent_assignment[prop_ind]
-                )
-
-                if type(action) == list:
+                # Only let the human allowed to act
+                assigned_agent = 1
+                if isinstance(action, list):
                     agent_actions[assigned_agent] += action
                 else:
                     agent_actions[assigned_agent].append(action)
-
-            if num_agents > 1:
-                for ind in range(num_agents):
-                    agent_actions[ind].append(f"Wait {prop_grp_ind}")
-
+            agent_actions[0].append(f"Wait {prop_grp_ind}")
         return agent_actions
 
     def get_list_actions_from_rearrange(
@@ -795,7 +810,7 @@ class PropositionResolver:
                     (ind, objn) for objn, ind in zip(next_to, rearrange_ids)
                 ]
 
-            ## Fill up the same argument
+            ## Fill up the same argumentget_list_actions_from_rearrange
             if task_type == "is_next_to":
                 sampled_elements = [sampled_objects, next_to]
                 relation_names = self.next_to_move[prop_ind]
@@ -1135,6 +1150,7 @@ class ScriptedCentralizedPlanner(Planner):
     def __init__(self, plan_config, env_interface):
         # Call Planner class constructor
         super().__init__(plan_config, env_interface)
+        # print("Init Scripted Centralized Planner")
 
         self.seed = 142
         self.reset()
@@ -1156,6 +1172,9 @@ class ScriptedCentralizedPlanner(Planner):
         self.is_waiting = [False for _ in range(num_agents)]
 
         self.next_skill_agents = {ind: True for ind in range(num_agents)}
+        # self.robot_nav_commands = ["Turn Right", "Turn Left", "Move Forward", "Move Backward", "Wait"]
+        # Randomly select one command for the robot.
+        # self.robot_action = (random.choice(self.robot_nav_commands), "", "")
         self.actions_per_agent = None
         self.move_next_skill = True
         self.curr_hist = ""
@@ -1197,12 +1216,48 @@ class ScriptedCentralizedPlanner(Planner):
 
         # Advance the plan for any agent that has to switch to next skills
 
-        for agent_id in next_skill_agents:
-            if next_skill_agents[agent_id] and not self.is_waiting[agent_id]:
-                self.plan_indx[agent_id] += 1
+        # for agent_id in next_skill_agents:
+        #     if next_skill_agents[agent_id] and not self.is_waiting[agent_id]:
+        #         self.plan_indx[agent_id] += 1
+
+        # is_done = [False, False]
+        # for agent_id in next_skill_agents:
+        #     curr_step_skill = self.plan_indx[agent_id]
+        #     if curr_step_skill >= len(self.actions_per_agent[agent_id]):
+        #         self.is_waiting[agent_id] = True
+        #         is_done[agent_id] = True
+        #     elif "Wait" in self.actions_per_agent[agent_id][curr_step_skill]:
+        #         self.is_waiting[agent_id] = True
+
+        # if np.all(is_done):
+        #     return {}, ""
+
+        # is_waiting = np.all(self.is_waiting)
+        # if is_waiting:
+        #     # All the agents started to wait, means we can unblock
+        #     self.is_waiting = [False for _ in range(len(self.actions_per_agent))]
+        #     for agent_id in self.actions_per_agent:
+        #         self.is_waiting[agent_id] = False
+
+        #     return self.actions_parser({0: True, 1: True})
+
+        # high_level_actions = {}
+        # for agent_id in self.actions_per_agent:
+        #     if self.is_waiting[agent_id]:
+        #         high_level_actions[agent_id] = ("Wait", "", "")
+        #     else:
+        #         curr_step_skill = self.plan_indx[agent_id]
+        #         agent_action_name = self.actions_per_agent[agent_id][curr_step_skill]
+        #         high_level_actions[agent_id] = agent_action_name
+
+        # high_level_actions_str = self.stringify_actions(high_level_actions)
+
+        # Advance the plan for agent[1] only.
+        if next_skill_agents.get(1, False) and not self.is_waiting[1]:
+            self.plan_indx[1] += 1
 
         is_done = [False, False]
-        for agent_id in next_skill_agents:
+        for agent_id in [0, 1]:
             curr_step_skill = self.plan_indx[agent_id]
             if curr_step_skill >= len(self.actions_per_agent[agent_id]):
                 self.is_waiting[agent_id] = True
@@ -1213,26 +1268,19 @@ class ScriptedCentralizedPlanner(Planner):
         if np.all(is_done):
             return {}, ""
 
-        is_waiting = np.all(self.is_waiting)
-        if is_waiting:
-            # All the agents started to wait, means we can unblock
-            self.is_waiting = [False for _ in range(len(self.actions_per_agent))]
-            for agent_id in self.actions_per_agent:
-                self.is_waiting[agent_id] = False
-
-            return self.actions_parser({0: True, 1: True})
-
-        high_level_actions = {}
-        for agent_id in self.actions_per_agent:
-            if self.is_waiting[agent_id]:
-                high_level_actions[agent_id] = ("Wait", "", "")
-            else:
-                curr_step_skill = self.plan_indx[agent_id]
-                agent_action_name = self.actions_per_agent[agent_id][curr_step_skill]
-                high_level_actions[agent_id] = agent_action_name
-
+        if np.all(self.is_waiting):  # Use the list directly instead of self.is_waiting.values()
+            # Unblock waiting state for both agents.
+            self.is_waiting = [False, False]
+            return self.actions_parser({1: True})
+        
+        # NOTE LEONA: modify the agent action execution here
+        # Force agent[0] to always return a Wait action; agent[1] takes its next action.
+        high_level_actions = {
+            0: ("Wait", "", ""),
+            # 0: self.robot_action, 
+            1: self.actions_per_agent[1][self.plan_indx[1]],
+        }
         high_level_actions_str = self.stringify_actions(high_level_actions)
-
         return high_level_actions, high_level_actions_str
 
     def stringify_actions(self, actions_per_agent):
@@ -1271,6 +1319,7 @@ class ScriptedCentralizedPlanner(Planner):
         if self.actions_per_agent is None:
             # Generate the dag in the first step
             self.get_plan_dag(world_graph)
+            # LEONA: Disable the action for Robot agent
             first_action = True
 
         if len(self.curr_hist) == 0:

@@ -355,7 +355,7 @@ class SkillPolicy(Policy):
 
         # Clip the actions anc convert to np array
         actions = [
-            np.clip(a.numpy(), clip_range.low, clip_range.high) for a in actions.cpu()
+            np.clip(np.array(a.numpy()), clip_range.low, clip_range.high) for a in actions.cpu()
         ]
 
         return actions
